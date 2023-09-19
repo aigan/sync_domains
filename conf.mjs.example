@@ -1,0 +1,22 @@
+export const conf = {
+	http: {
+		user: "my_user",
+		pass: "secret",
+		port: 2470,
+	},
+	source: "sol.para.se",
+	dns: "ns1.loopia.se",
+	reference: "para.se",
+	dyndns: [
+		{
+			user: "loopia_user",
+			pass: "secret",
+			server: "dyndns.loopia.se",
+			domains: [
+				"para.se",
+				"alternativ.se",
+			],
+		},
+	],
+}
+
