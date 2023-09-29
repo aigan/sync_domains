@@ -23,7 +23,7 @@ resolver.setServers(dns_ips)
 
 const is_main = import.meta.url.endsWith(process.argv[1])
 if( is_main ){
-	const res = await sync_domain_ip({dry:false,verbose:true});
+	const res = await sync_domain_ip({dry:false,verbose:true,force:false});
 	log(res);
 }
 
@@ -33,7 +33,7 @@ export async function sync_domain_ip({dry,force,verbose}={}){
 
 	const [ref_ip] = await resolver.resolve4(ref_domain)
 
-	if( src_ip === ref_ip ) return "nochg"
+	if( src_ip === ref_ip && !force ) return "nochg"
 
 	//log("update", ref_ip, "=>", src_ip)
 	if(verbose) log({dry,force,ref_ip,src_ip})
@@ -55,7 +55,7 @@ export async function sync_domain_ip({dry,force,verbose}={}){
 				continue;
 			}
 			
-			const url = `https://${dyndns.server}?hostname=${domain}&myip=${src_ip}`;
+			const url = `https://${dyndns.server}?hostname=${domain}&myip=${src_ip}&wildcard=NOCHG`;
 			if( dry && verbose) log("would call", url);
 			if( dry ) continue;
 			const res = await basic_fetch(url, headers);
