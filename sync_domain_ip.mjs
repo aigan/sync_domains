@@ -4,7 +4,12 @@ import * as HTTPS from "https"
 import * as DNS from "dns"
 import {conf} from "./conf.mjs"
 import process from "process"
-//import { promisify } from "util"
+import { realpath } from 'fs/promises';
+import { fileURLToPath } from 'url';
+
+import Child_Process from 'child_process';
+import { promisify } from 'util';
+const exec = promisify(Child_Process.exec);
 
 
 const log = console.log.bind(console)
@@ -21,23 +26,43 @@ const dns_ips = await resolve(dns)
 const resolver = new DNS.promises.Resolver()
 resolver.setServers(dns_ips)
 
-const is_main = import.meta.url.endsWith(process.argv[1])
+const invoked = await realpath( process.argv[1]);
+const __filename = await realpath(fileURLToPath(import.meta.url));
+
+const is_main = invoked === __filename;
+
 if( is_main ){
 	const argv = process.argv.slice(2)
 	const params = {}
-	for( const arg of ['dry','verbose','force'] )
-		params[arg] = argv.includes(arg)
+	//log( argv);
+	for( const arg of ['dry','verbose','force'] ){
+		params[arg] = argv.includes(arg) || argv.includes('--'+arg);
+		//log(`${arg} ${params[arg]}`);
+	}
 	
-	const res = await sync_domain_ip(params)
-	log(res)
+	try {
+		const res = await sync_domain_ip(params)
+		log(res);
+	}
+	catch( err ){
+		if( err.code === "ENOTFOUND" ){
+			console.error(`Domain not found: ${err.hostname}`);
+		} else {
+			throw err;
+		}
+	}
 }
 
 export async function sync_domain_ip({dry,force,verbose}={}){
+	//log(`sync_domain ${src_domain}`);
 	const [src_ip] = await resolver.resolve4(src_domain)
-	//const src_ip = "213.88.136.204"
 
+	if(verbose) log(`Src: ${src_domain} ${src_ip}`);
+	
 	const [ref_ip] = await resolver.resolve4(ref_domain)
-
+	
+	if( verbose) log(`Ref: ${ref_domain} ${ref_ip}`);
+	
 	if( src_ip === ref_ip && !force ) return "nochg"
 
 	//log("update", ref_ip, "=>", src_ip)
@@ -87,4 +112,12 @@ function basic_fetch( url, headers ){
 			resp.on('end', () => resolve(data) )
 		}).on("error", err => reject(err) )
 	})
+}
+
+async function uncached_ip(domain) {
+  const { stdout } = await exec(`dig +trace +short ${domain}`);
+  const lines = stdout.trim().split('\n');
+  const lastARecord = lines.reverse().find(line => /^A\s/.test(line));
+	if( !lastARecord ) return null;
+	return lastARecord.split(' ')[1];
 }
