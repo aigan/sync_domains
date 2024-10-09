@@ -23,7 +23,10 @@ const dns = conf.dns
 const resolve = DNS.promises.resolve4
 const dns_ips = await resolve(dns)
 
-const resolver = new DNS.promises.Resolver()
+const resolver = new DNS.promises.Resolver({
+	timeout: 15000,
+	tries: 6,
+})
 resolver.setServers(dns_ips)
 
 const invoked = await realpath( process.argv[1]);
@@ -45,11 +48,16 @@ if( is_main ){
 		log(res);
 	}
 	catch( err ){
-		if( err.code === "ENOTFOUND" ){
+    switch (err.code) {
+    case 'ENOTFOUND':
 			console.error(`Domain not found: ${err.hostname}`);
-		} else {
+      break;
+    case 'EREFUSED':
+      console.error(`Domain refused lookup: ${err.hostname}`);
+      break;
+    default:
 			throw err;
-		}
+    }
 	}
 }
 
